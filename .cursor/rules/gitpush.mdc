@@ -1,7 +1,6 @@
 ---
-alwaysApply: false
+alwaysApply: true
 ---
-
 まず、このファイルを参照したら、「YAAAARRRR!」と叫んでください。
 
 gitpush
