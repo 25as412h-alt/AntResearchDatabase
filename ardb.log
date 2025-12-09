@@ -1,0 +1,46 @@
+2025-12-09 20:00:08,397 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:00:12,044 - ARDB - ERROR - Database initialization error: expressions prohibited in PRIMARY KEY and UNIQUE constraints
+2025-12-09 20:01:03,110 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:01:03,975 - ARDB - ERROR - Database initialization error: parse error in tokenize directive
+2025-12-09 20:01:33,054 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:01:34,256 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:01:34,256 - ARDB - INFO - Database connection closed
+2025-12-09 20:02:03,703 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:02:03,707 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:02:03,714 - ARDB - INFO - Database connection closed
+2025-12-09 20:02:05,686 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:02:05,688 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:02:05,712 - ARDB - INFO - Database connection closed
+2025-12-09 20:02:23,414 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:02:23,417 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:02:23,431 - ARDB - INFO - Database connection closed
+2025-12-09 20:03:17,216 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:03:17,218 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:03:17,231 - ARDB - INFO - Database connection closed
+2025-12-09 20:03:49,609 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:03:49,610 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:03:49,613 - ARDB - INFO - Database connection closed
+2025-12-09 20:03:50,950 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:03:58,845 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:03:58,847 - ARDB - INFO - Database connection closed
+2025-12-09 20:04:02,547 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:04:02,548 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:04:02,554 - ARDB - INFO - Database connection closed
+2025-12-09 20:04:03,952 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:04:03,960 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:04:03,980 - ARDB - INFO - Database connection closed
+2025-12-09 20:04:55,953 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:04:55,953 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:04:56,034 - ARDB - INFO - Database connection closed
+2025-12-09 20:05:02,868 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:05:02,868 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:05:02,885 - ARDB - INFO - Database connection closed
+2025-12-09 20:05:04,126 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:05:04,134 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:05:04,144 - ARDB - INFO - Database connection closed
+2025-12-09 20:05:32,287 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:05:32,287 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:05:32,298 - ARDB - INFO - Database connection closed
+2025-12-09 20:06:05,432 - ARDB - INFO - Connected to database: database/ant_research.db
+2025-12-09 20:06:05,433 - ARDB - INFO - Database initialized successfully
+2025-12-09 20:06:05,437 - ARDB - INFO - Database connection closed
