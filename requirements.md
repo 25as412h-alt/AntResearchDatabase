@@ -1,8 +1,8 @@
-要件定義書：長野県アリ類データベース (NARD)
+要件定義書：アリ類研究データベース 
 Version: 2.1 (High-Integrity Edition) Date: 2023-12-XX Target: Python/SQLite Backend Implementation
 
 1. プロジェクト概要
-システム名: Nagano Ant Research Database (NARD)
+システム名: Ant Research Database 
 
 目的: 長野県内のアリ類生息情報および先行研究を管理・検索する。特に「同所的に生息する種」の抽出精度を担保するため、データの整合性と正規化を徹底する。
 
