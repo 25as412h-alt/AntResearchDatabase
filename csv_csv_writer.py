@@ -25,3 +25,4 @@ def append_row_to_csv(csv_path: Path, row: dict) -> None:
         writer.writerow(row)
 
 
+
