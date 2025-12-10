@@ -1,98 +1,101 @@
-# 要件定義書：アリ類研究データベース
+---
+
+# 要件定義書：アリ類研究データベース (改訂版)
 
 | 項目 | 内容 |
 | :--- | :--- |
 | **System Name** | Ant Research Database |
-| **Target** | Python/SQLite Backend Implementation |
+| **Version** | 1.0 (MVP: Minimum Viable Product) |
+| **Target** | Python/SQLite Backend + PyQt6 GUI |
 
-## 1\. プロジェクト概要
+## 1. プロジェクト概要
 
 ### 目的
+長野県内のアリ類生息情報および先行研究を管理・検索するシステム。特に「同所的に生息する種」の抽出精度を担保する。
 
-長野県内のアリ類生息情報および先行研究を管理・検索するシステム。特に「同所的に生息する種」の抽出精度を担保するため、データの整合性と正規化を徹底する。
+### MVP (最小限機能) スコープ
+**Phase 1 (最優先実装):**
+- ✅ データベース構築 (SQLite)
+- ✅ CSVインポート機能
+- ✅ アリ種検索 → 同所的種・環境・研究の一覧表示
+- ✅ 基本CRUD (作成・読込・更新・削除)
 
-### 主要要件
+**Phase 2 (後回し):**
+- ⏸️ 全文検索 (FTS5) → 研究テキスト検索は手動grep可
+- ⏸️ 空間検索 (R-Tree) → まずは緯度経度でのソート表示
+- ⏸️ 高度なGUI (グラフ・地図表示)
 
-  * **Strict Consistency:** 外部キー制約、ユニーク制約によるデータ矛盾の物理的排除。
-  * **Robust ETL:** CSVインポート時の表記揺れ正規化（名寄せ）と厳密なバリデーション。
-  * **Searchability:** 学名/和名の区別なき検索と、FTS5による高速全文検索。
+---
 
------
+## 2. 技術スタック
 
-## 2\. 技術スタック
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| **Language** | Python | 3.10+ |
+| **GUI** | PyQt6 | Latest |
+| **Database** | SQLite3 | 3.35+ |
+| **Data Processing** | Pandas | Latest |
+| **Extensions** | FTS5 (Phase 2) | Built-in |
 
-  * **Language:** Python 3.10+
-  * **GUI:** PyQt6 / PySide6
-  * **Database:** SQLite3
-  * **Extensions:**
-      * FTS5 (Full-Text Search)
-      * R-Tree (Optional for future GIS)
-  * **Settings:**
-      * `PRAGMA foreign_keys = ON;` (常時必須)
+**重要設定:**
+```python
+# 接続時に必ず実行
+conn.execute("PRAGMA foreign_keys = ON;")
+conn.execute("PRAGMA journal_mode = WAL;")  # 並行読込性能向上
+```
 
------
+---
 
-## 3\. データベース設計 (Schema)
+## 3. データベース設計 (簡略版)
 
-### 3.1 ER図 (Mermaid)
+### 3.1 ER図 (MVP版)
 
 ```mermaid
 erDiagram
-    SPECIES ||--o{ SPECIES_SYNONYMS : has_alias
-    SPECIES ||--o{ SPECIES_IMAGES : has_image
-    SPECIES ||--o{ OCCURRENCES : appears_in
+    SPECIES ||--o{ SPECIES_SYNONYMS : "has"
+    SPECIES ||--o{ OCCURRENCES : "appears_in"
     
-    RESEARCH ||--|| RESEARCH_TEXTS : has_content
-    RESEARCH ||--o{ SURVEY_SITES : conducted_at
+    RESEARCH ||--o{ SURVEY_SITES : "conducted_at"
+    SURVEY_SITES ||--o{ OCCURRENCES : "contains"
     
-    ENVIRONMENT_TYPES ||--o{ SURVEY_SITES : classifies
-    SEASONS ||--o{ SURVEY_SITES : temporal_context
-    
-    SURVEY_SITES ||--o{ OCCURRENCES : contains
-    METHODS ||--o{ OCCURRENCES : collected_by
-    UNITS ||--o{ OCCURRENCES : counted_in
+    ENVIRONMENT_TYPES ||--o{ SURVEY_SITES : "classifies"
+    METHODS ||--o{ OCCURRENCES : "collected_by"
 
     SPECIES {
         int id PK
-        string scientific_name UK
-        string japanese_name
-        float body_len_min
-        float body_len_max
-        string dist_text
-        string red_list
+        text scientific_name UK
+        text japanese_name
+        text subfamily
+        real body_len_mm "平均体長"
+        text red_list
+        text notes
     }
     
     SPECIES_SYNONYMS {
         int id PK
         int species_id FK
-        string name UK "検索用"
-        string name_normalized UK "正規化・名寄せ用"
+        text name UK "入力時照合用"
+        text name_normalized UK "NFKC正規化済"
     }
 
     RESEARCH {
         int id PK
-        string doi UK
-        string title
-        string author
+        text title UK
+        text author
         int year
-        string unique_hash UK "MD5(title+year+author)"
-    }
-
-    RESEARCH_TEXTS {
-        int research_id FK
-        string content "FTS Index"
+        text doi
+        text file_path "PDFパス"
     }
 
     SURVEY_SITES {
         int id PK
         int research_id FK
-        string site_name
-        string date_start
-        int environment_type_id FK
-        float latitude
-        float longitude
-        int elevation
-        constraint UK "research+site+date+loc"
+        text site_name
+        text survey_date "YYYY-MM-DD"
+        int env_type_id FK
+        real latitude
+        real longitude
+        int elevation_m
     }
 
     OCCURRENCES {
@@ -100,148 +103,191 @@ erDiagram
         int site_id FK
         int species_id FK
         int method_id FK
-        int unit_id FK
-        int abundance
-        constraint UK "site+species+method+unit"
+        int abundance "個体数"
+        text unit "worker/colony等"
+    }
+    
+    ENVIRONMENT_TYPES {
+        int id PK
+        text name UK "森林/草地/市街地等"
+    }
+    
+    METHODS {
+        int id PK
+        text name UK "ピットフォール/ベイト等"
     }
 ```
 
-### 3.2 テーブル定義詳細 (DDL要件)
+### 3.2 DDL (CREATE文)---
 
-#### A. マスター・辞書 (Dictionaries)
+## 4. CSVインポート仕様 (簡略版)
 
-*表記揺れを排除するため、定型項目はすべてID管理とする。*
+### 4.1 CSVファイル構成
 
-**`species` (生物種マスター)**
+**最小3ファイル構成:**
 
-  * `id`: INTEGER PK
-  * `scientific_name`: TEXT UNIQUE NOT NULL
-  * `japanese_name`: TEXT NOT NULL
-  * Others: `subfamily`, `body_len_min`, `body_len_max`, `dist_text`, `elev_min`, `elev_max`, `red_list`
+1. **`species.csv`** - 種マスター
+```csv
+scientific_name,japanese_name,subfamily,body_len_mm,synonyms
+Formica japonica,クロヤマアリ,Formicinae,7.5,"クロヤマ,Formica fusca japonica"
+```
 
-**`species_synonyms` (名寄せ辞書)**
-*目的: 和名、学名、旧名、別名をすべてここに格納し、入力揺れを吸収する。*
+2. **`research.csv`** - 文献情報
+```csv
+title,author,year,doi,file_path
+長野県のアリ相,山田太郎,2020,10.xxxx/xxxxx,data/pdfs/yamada2020.pdf
+```
 
-  * `id`: INTEGER PK
-  * `species_id`: INTEGER FK -\> `species.id` (**ON DELETE CASCADE**)
-  * `name`: TEXT NOT NULL (表示用)
-  * `name_normalized`: TEXT UNIQUE NOT NULL (検索・マッチング用。全角半角・スペース正規化済み)
-  * `type`: TEXT ('scientific', 'japanese', 'synonym')
+3. **`records.csv`** - 観測データ (非正規化)
+```csv
+research_title,site_name,survey_date,latitude,longitude,elevation_m,environment,method,species_name,abundance,unit
+長野県のアリ相,松本城周辺,2020-06-15,36.2381,137.9691,590,市街地,ピットフォールトラップ,クロヤマアリ,15,worker
+```
 
-**`environment_types`, `methods`, `seasons`, `units`**
+### 4.2 インポート処理フロー
 
-  * 各テーブルに `id` (PK) と `name` (UNIQUE) を持つ。
-  * `units`例: 'worker', 'colony', 'queen' など。
+```mermaid
+graph TD
+    A[CSV読込] --> B[NFKC正規化]
+    B --> C{種名解決}
+    C -->|ヒット| D[ID取得]
+    C -->|未登録| E[エラーログ出力]
+    D --> F{地点存在?}
+    F -->|Yes| G[既存ID使用]
+    F -->|No| H[新規作成]
+    G --> I{重複チェック}
+    H --> I
+    I -->|新規| J[INSERT]
+    I -->|重複| K[abundance加算UPDATE]
+    J --> L[完了]
+    K --> L
+    E --> M[次行へスキップ]
+```---
 
-#### B. 研究データ (Research Data)
+## 5. 検索機能仕様 (核心機能)
 
-**`research` (文献メタデータ)**
+### 5.1 主要クエリ
 
-  * `id`: INTEGER PK
-  * `doi`: TEXT UNIQUE (NULL許容)
-  * `title`: TEXT NOT NULL
-  * `author`: TEXT NOT NULL
-  * `year`: INTEGER NOT NULL
-  * `unique_hash`: TEXT UNIQUE NOT NULL (DOIがない場合の重複排除キー。`md5(title + year + author)`)
+**Q1: ある種と同所的に出現した種の一覧**
 
-**`research_texts` (全文検索)**
+```sql
+-- 例: クロヤマアリ (species_id=1) と同じ場所に出た種
+SELECT DISTINCT
+    s.scientific_name,
+    s.japanese_name,
+    COUNT(DISTINCT o.site_id) AS co_occurrence_count
+FROM occurrences o1
+JOIN occurrences o2 ON o1.site_id = o2.site_id
+JOIN species s ON o2.species_id = s.id
+WHERE o1.species_id = 1  -- クロヤマアリ
+  AND o2.species_id != 1  -- 自分以外
+GROUP BY s.id
+ORDER BY co_occurrence_count DESC;
+```
 
-  * **Engine:** FTS5
-  * **Columns:** `research_id` (UNINDEXED), `content`
-  * **Tokenizer:** `unicode61 (remove_diacritics=1, tokenchars="-_. ")`
-  * *Note: スニペット生成のため contentless オプションは使用しない。*
+**Q2: ある種が出現した環境の統計**
 
-#### C. 観測データ (Field Records)
+```sql
+SELECT 
+    et.name AS environment,
+    COUNT(DISTINCT ss.id) AS site_count,
+    SUM(o.abundance) AS total_abundance
+FROM occurrences o
+JOIN survey_sites ss ON o.site_id = ss.id
+JOIN environment_types et ON ss.env_type_id = et.id
+WHERE o.species_id = 1
+GROUP BY et.id
+ORDER BY site_count DESC;
+```
 
-**`survey_sites` (調査地点)**
-*目的: 「いつ・どこで」を一意に特定する。*
+**Q3: ある種が記録された研究一覧**
 
-  * `id`: INTEGER PK
-  * `research_id`: INTEGER FK -\> `research.id` (**ON DELETE CASCADE**)
-  * `site_name`: TEXT NOT NULL
-  * `date_start`: TEXT (ISO8601: YYYY-MM-DD)
-  * `environment_type_id`: INTEGER FK
-  * `season_id`: INTEGER FK
-  * `latitude`: REAL (Check: -90\~90)
-  * `longitude`: REAL (Check: -180\~180)
-  * `elevation`: INTEGER (Check: \> -500)
-  * **UNIQUE Constraint:** `(research_id, site_name, date_start, latitude, longitude, elevation)`
-      * *Note: 厳密な同一地点定義。わずかでもズレれば別地点として扱う。*
+```sql
+SELECT DISTINCT
+    r.title,
+    r.author,
+    r.year,
+    COUNT(DISTINCT o.site_id) AS sites_count
+FROM occurrences o
+JOIN survey_sites ss ON o.site_id = ss.id
+JOIN research r ON ss.research_id = r.id
+WHERE o.species_id = 1
+GROUP BY r.id
+ORDER BY r.year DESC;
+```---
 
-**`occurrences` (出現記録)**
-*目的: 「何が・どうやって・どれくらい」いたか。*
+## 6. GUI設計 (PyQt6)
 
-  * `id`: INTEGER PK
-  * `site_id`: INTEGER FK -\> `survey_sites.id` (**ON DELETE CASCADE**)
-  * `species_id`: INTEGER FK -\> `species.id` (**ON DELETE RESTRICT**)
-  * `method_id`: INTEGER FK
-  * `unit_id`: INTEGER FK (個体数単位)
-  * `abundance`: INTEGER (0以上の整数)
-  * **UNIQUE Constraint:** `(site_id, species_id, method_id, unit_id)`
-      * *Note: 同一地点・同一種でも、採集法や単位が異なれば別レコード。*
+### 6.1 画面構成
 
------
+```
+┌─────────────────────────────────────────┐
+│  [File] [Edit] [View] [Help]            │  ← メニューバー
+├─────────────────────────────────────────┤
+│  検索: [__________________] [🔍]        │  ← 種名検索バー
+├────────────┬────────────────────────────┤
+│ 種リスト   │ 詳細情報タブ               │
+│ ┌────────┐ │ ┌─────────────────────┐  │
+│ │クロヤマ│ │ │[基本情報][同所種]    │  │
+│ │アミメ  │ │ │[環境][研究][地図]    │  │
+│ │トビイロ│ │ └─────────────────────┘  │
+│ └────────┘ │                            │
+│ [追加][編集]│                            │
+│ [削除]      │                            │
+└────────────┴────────────────────────────┘
+```
 
-## 4\. データインポート (ETL) 要件
+### 6.2 主要機能
 
-### 4.1 全体方針
+1. **種リスト** (左ペイン)
+   - 全種表示 (スクロール可能)
+   - インクリメンタル検索
+   - ダブルクリックで詳細表示
 
-1.  **Idempotency (冪等性):** スクリプトは何度実行しても安全であること。
-2.  **Log:** エラー行は `error_log.csv` に出力し、プロセスを停止させない（スキップ処理）。
-3.  **Normalization:** 全ての入力文字列に対し、`unicodedata.normalize('NFKC', text)` を適用してからDB照合を行う。
+2. **詳細タブ** (右ペイン)
+   - **基本情報**: 学名、和名、体長、レッドリスト
+   - **同所種**: 共起種のテーブル表示
+   - **環境**: 環境別統計のチャート
+   - **研究**: 文献リストと詳細
+   - **地図** (Phase 2): 出現地点のマッピング
 
-### 4.2 CSVファイル定義
+3. **CRUD操作**
+   - 追加: ダイアログで入力
+   - 編集: 選択行の編集ダイアログ
+   - 削除: 確認ダイアログ付き
 
-以下の4ファイルを所定フォルダから読み込む。
+---
 
-  * `00_dicts.csv`: 環境・手法・季節・単位の初期マスタ。
-  * `01_species.csv`: 種情報。synonyms列はカンマ区切りで複数指定。
-  * `02_research.csv`: 論文情報。txt\_file列がある場合はファイル読み込み。
-  * `03_records.csv`: 観測データ（非正規化テーブル）。
-      * **Columns:** `doi_or_title`, `site_name`, `date`, `lat`, `lon`, `elev`, `env`, `method`, `species_name`, `count`, `unit`
+## 7. 改善点まとめ
 
-### 4.3 ロジック仕様
+### 削除/簡略化した項目
 
-**1. 種名の解決**
+1. ✂️ **研究全文検索 (FTS5)** → Phase 2へ延期
+   - 理由: 初期段階ではタイトル・著者検索で十分
 
-  * `species_name` (CSV) を正規化し、`species_synonyms.name_normalized` を検索。
-  * ヒットしなければエラーログに出力し、その行をスキップ（自動登録はしない）。
+2. ✂️ **seasons テーブル** → survey_sites.survey_date で代用
+   - 理由: 日付から季節は自動判定可能
 
-**2. 地点の特定**
+3. ✂️ **species_images** → Phase 2へ延期
+   - 理由: 画像管理は運用開始後でも追加容易
 
-  * `(research_id, site_name, date, lat, lon, elev)` で `survey_sites` を検索。
-  * 存在しなければ新規作成、存在すればその `id` を使用。
+4. ✂️ **spatial search (R-Tree)** → 単純なLAT/LONソートで代用
+   - 理由: 長野県内なら線形検索でも実用的
 
-**3. 重複データの扱い (occurrences)**
+### 追加/強化した項目
 
-  * ユニーク制約 `(site_id, species_id, method_id, unit_id)` に抵触する場合：
-  * **Action:** 既存レコードの `abundance` に今回の値を **加算 (ADD)** する。
+1. ✅ **created_at / updated_at** → データ更新履歴の追跡
+2. ✅ **VIEW定義** → 頻出クエリの簡略化
+3. ✅ **エラーログ機能** → インポート失敗の可視化
+4. ✅ **abundance加算ロジック** → 重複データの自動マージ
 
------
+---
 
-## 5\. インデックス設計 (Performance)
+## 8. 次のステップ
 
-初期化時に以下のインデックスを作成すること。
+**immediate actions:**
 
-  * `IDX_species_sci ON species(scientific_name)`
-  * `IDX_synonyms_norm ON species_synonyms(name_normalized)` (ETL高速化の要)
-  * `IDX_sites_loc ON survey_sites(latitude, longitude, elevation)` (空間検索用)
-  * `IDX_occurrences_lookup ON occurrences(species_id, site_id)` (共起種検索用)
-
------
-
-## 6\. 今後の拡張性 (Future Roadmap)
-
-  * **Spatial Search:** R-Tree モジュールの導入による高速な範囲検索。
-  * **Uncertainty:** 座標精度 (`uncertainty_m`) を利用したファジー検索。
-  * **Analysis:** 季節性 (`season_id`) や環境選好性 (`environment_type_id`) の統計出力。
-
------
-
-### 次のステップ
-
-この要件定義に基づき、以下の作業を行う準備ができています。ご希望のものを指示してください。
-
-1.  SQLite用の完全な **SQL作成スクリプト（DDL）** の生成。
-2.  データインポート用 **Python ETLスクリプト（Pandas/SQLite3使用）** のプロトタイプ作成。
-3.  **SQLAlchemy** または **Pydantic** を用いたデータモデルの定義コード作成。
+1. ✅ **SQL実行** → `database_schema.sql` でDB初期化
+2. ✅ **サンプルCSV作成** → 3ファイルのテストデータ準備
+3. ✅ **インポート実行** → `csv_importer.py` でデータ投入
+4. ⏩ **GUIプロトタイプ** → PyQt6で基本画面作成
