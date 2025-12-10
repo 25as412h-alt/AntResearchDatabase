@@ -10,7 +10,7 @@ CREATE TABLE species (
     japanese_name TEXT NOT NULL,
     subfamily TEXT,
     body_len_mm REAL CHECK(body_len_mm > 0),
-    red_list TEXT,  -- 'VU', 'EN', 'NT' etc.
+    red_list TEXT,
     notes TEXT,
     created_at TEXT DEFAULT (datetime('now', 'localtime')),
     updated_at TEXT DEFAULT (datetime('now', 'localtime'))
@@ -21,8 +21,8 @@ CREATE TABLE species_synonyms (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     species_id INTEGER NOT NULL,
     name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    name_normalized TEXT NOT NULL UNIQUE,  -- NFKC正規化済
-    synonym_type TEXT DEFAULT 'alias',  -- 'scientific', 'japanese', 'alias'
+    name_normalized TEXT NOT NULL UNIQUE,
+    synonym_type TEXT DEFAULT 'alias',
     FOREIGN KEY (species_id) REFERENCES species(id) ON DELETE CASCADE
 );
 
@@ -49,10 +49,10 @@ CREATE TABLE research (
     author TEXT NOT NULL,
     year INTEGER NOT NULL CHECK(year >= 1900 AND year <= 2100),
     doi TEXT UNIQUE,
-    file_path TEXT,  -- PDFファイルパス (相対パス)
+    file_path TEXT,
     notes TEXT,
     created_at TEXT DEFAULT (datetime('now', 'localtime')),
-    UNIQUE(title, year, author)  -- DOIない場合の重複防止
+    UNIQUE(title, year, author)
 );
 
 -- 調査地点
@@ -60,7 +60,7 @@ CREATE TABLE survey_sites (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     research_id INTEGER NOT NULL,
     site_name TEXT NOT NULL,
-    survey_date TEXT,  -- YYYY-MM-DD
+    survey_date TEXT,
     env_type_id INTEGER,
     latitude REAL CHECK(latitude BETWEEN -90 AND 90),
     longitude REAL CHECK(longitude BETWEEN -180 AND 180),
@@ -78,41 +78,36 @@ CREATE TABLE occurrences (
     species_id INTEGER NOT NULL,
     method_id INTEGER,
     abundance INTEGER DEFAULT 0 CHECK(abundance >= 0),
-    unit TEXT DEFAULT 'worker',  -- 'worker', 'colony', 'queen'
+    unit TEXT DEFAULT 'worker',
     notes TEXT,
     FOREIGN KEY (site_id) REFERENCES survey_sites(id) ON DELETE CASCADE,
     FOREIGN KEY (species_id) REFERENCES species(id) ON DELETE RESTRICT,
     FOREIGN KEY (method_id) REFERENCES methods(id),
-    UNIQUE(site_id, species_id, method_id, unit)  -- 重複防止
+    UNIQUE(site_id, species_id, method_id, unit)
 );
 
 -- ==================== インデックス ====================
 
--- 高速検索用
 CREATE INDEX idx_species_sci ON species(scientific_name);
 CREATE INDEX idx_species_jpn ON species(japanese_name);
 CREATE INDEX idx_synonyms_norm ON species_synonyms(name_normalized);
-
--- 空間検索準備
 CREATE INDEX idx_sites_location ON survey_sites(latitude, longitude, elevation_m);
 CREATE INDEX idx_sites_research ON survey_sites(research_id);
-
--- 出現記録検索 (最重要)
 CREATE INDEX idx_occurrences_species ON occurrences(species_id);
 CREATE INDEX idx_occurrences_site ON occurrences(site_id);
 CREATE INDEX idx_occurrences_lookup ON occurrences(species_id, site_id);
 
--- ==================== トリガー (更新日時自動更新) ====================
+-- ==================== トリガー ====================
 
 CREATE TRIGGER update_species_timestamp 
 AFTER UPDATE ON species
+FOR EACH ROW
 BEGIN
     UPDATE species SET updated_at = datetime('now', 'localtime') WHERE id = NEW.id;
 END;
 
 -- ==================== 初期データ ====================
 
--- 環境タイプ
 INSERT INTO environment_types (name, description) VALUES
     ('森林', '自然林・人工林'),
     ('草地', '草原・牧草地'),
@@ -121,7 +116,6 @@ INSERT INTO environment_types (name, description) VALUES
     ('河川敷', '河川・湖沼周辺'),
     ('その他', '未分類');
 
--- 採集方法
 INSERT INTO methods (name, description) VALUES
     ('ピットフォールトラップ', '落とし穴式トラップ'),
     ('ベイトトラップ', '餌によるおびき寄せ'),
@@ -130,9 +124,8 @@ INSERT INTO methods (name, description) VALUES
     ('ツルグレン装置', '土壌サンプルからの抽出'),
     ('その他', '記載なし・不明');
 
--- ==================== ビュー (便利な結合) ====================
+-- ==================== ビュー ====================
 
--- 種の完全情報 (synonyms含む)
 CREATE VIEW v_species_full AS
 SELECT 
     s.id,
@@ -144,7 +137,6 @@ FROM species s
 LEFT JOIN species_synonyms sy ON s.id = sy.species_id
 GROUP BY s.id;
 
--- 出現記録の読みやすいビュー
 CREATE VIEW v_occurrences_readable AS
 SELECT 
     o.id,

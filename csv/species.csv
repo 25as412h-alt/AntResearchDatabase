@@ -1,2 +1,6 @@
-scientific_name,japanese_name,subfamily,body_len_mm,synonyms
-Formica japonica,クロヤマアリ,Formicinae,7.5,"クロヤマ,Formica fusca japonica"
+scientific_name,japanese_name,subfamily,body_len_mm,red_list,synonyms
+Formica japonica,クロヤマアリ,Formicinae,7.5,,"クロヤマ,Formica fusca japonica"
+Camponotus japonicus,クロオオアリ,Formicinae,12.0,,クロオオ
+Lasius japonicus,トビイロケアリ,Formicinae,4.5,,トビイロ
+Myrmica kotokui,アシナガアリ,Myrmicinae,5.0,,アシナガ
+Pristomyrmex pungens,アミメアリ,Myrmicinae,3.5,,アミメ
