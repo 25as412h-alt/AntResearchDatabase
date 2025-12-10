@@ -168,6 +168,10 @@ class MainWindow(QMainWindow):
         splitter.setSizes([300, 900])
         
         main_layout.addWidget(splitter)
+
+        # 新規CSV Editorパネル: Add / List / Edit の3トップタブ + species/research/recordsのサブタブ
+        self.csv_editor_panel = self.create_csv_editor_panel()
+        main_layout.addWidget(self.csv_editor_panel)
         
         # ステータスバー
         self.status_bar = QStatusBar()
@@ -568,6 +572,7 @@ class MainWindow(QMainWindow):
             self, "エクスポート先を選択", "", "CSV Files (*.csv)"
         )
         if file_path:
+            # 将来的にはここから各 CSV へ追記されたデータを DB に取り込むワークフローを追加
             try:
                 df = pd.read_sql_query(
                     "SELECT * FROM v_occurrences_readable", 
@@ -609,6 +614,188 @@ class MainWindow(QMainWindow):
         """ウィンドウクローズ時"""
         self.db_query.close()
         event.accept()
+
+    def append_species_to_csv(self):
+        """species.csv へデータを追記"""
+        from csv_csv_writer import append_row_to_csv
+        from pathlib import Path
+        row = {
+            'scientific_name': self.species_add_sci.text().strip(),
+            'japanese_name': self.species_add_jp.text().strip(),
+            'subfamily': self.species_add_sub.text().strip(),
+            'body_len_mm': self.species_add_len.value() if self.species_add_len.value() > 0 else "",
+            'red_list': self.species_add_red.currentText(),
+            'synonyms': self.species_add_synonyms.text().strip(),
+            'notes': self.species_add_notes.toPlainText().strip(),
+        }
+        if not row['scientific_name'] or not row['japanese_name']:
+            QMessageBox.warning(self, "入力エラー", "学名と和名は必須です。")
+            return
+        csv_path = Path("csv") / "species.csv"
+        append_row_to_csv(csv_path, row)
+        QMessageBox.information(self, "成功", "species.csv へ追記しました。")
+        # クリア
+        self.species_add_sci.clear()
+        self.species_add_jp.clear()
+        self.species_add_sub.clear()
+        self.species_add_len.setValue(0)
+        self.species_add_red.setCurrentIndex(0)
+        self.species_add_synonyms.clear()
+        self.species_add_notes.clear()
+
+    def append_research_to_csv(self):
+        """research.csv へデータを追記"""
+        from csv_csv_writer import append_row_to_csv
+        from pathlib import Path
+        row = {
+            'title': self.research_add_title.text().strip(),
+            'author': self.research_add_author.text().strip(),
+            'year': self.research_add_year.text().strip(),
+            'doi': self.research_add_doi.text().strip(),
+            'file_path': self.research_add_file_path.text().strip(),
+        }
+        if not row['title'] or not row['author'] or not row['year']:
+            QMessageBox.warning(self, "入力エラー", "タイトル・著者・年は必須です。")
+            return
+        csv_path = Path("csv") / "research.csv"
+        append_row_to_csv(csv_path, row)
+        QMessageBox.information(self, "成功", "research.csv へ追記しました。")
+        self.research_add_title.clear()
+        self.research_add_author.clear()
+        self.research_add_year.clear()
+        self.research_add_doi.clear()
+        self.research_add_file_path.clear()
+
+    def append_records_to_csv(self):
+        """records.csv へデータを追記"""
+        from csv_csv_writer import append_row_to_csv
+        from pathlib import Path
+        row = {
+            'research_title': self.records_add_research_title.text().strip(),
+            'site_name': self.records_add_site.text().strip(),
+            'survey_date': self.records_add_date.text().strip(),
+            'latitude': self.records_add_lat.text().strip(),
+            'longitude': self.records_add_lon.text().strip(),
+            'elevation_m': self.records_add_elev.text().strip(),
+            'environment': self.records_add_env.text().strip(),
+            'method': self.records_add_method.text().strip(),
+            'species_name': self.records_add_species.text().strip(),
+            'abundance': self.records_add_abundance.text().strip(),
+            'unit': self.records_add_unit.text().strip(),
+        }
+        # いくつか必須項目のチェック（シンプルな検証のみ）
+        if not row['research_title'] or not row['site_name']:
+            QMessageBox.warning(self, "入力エラー", "研究タイトルと地点名は必須です。")
+            return
+        csv_path = Path("csv") / "records.csv"
+        append_row_to_csv(csv_path, row)
+        QMessageBox.information(self, "成功", "records.csv へ追記しました。")
+        self.records_add_research_title.clear()
+        self.records_add_site.clear()
+        self.records_add_date.clear()
+        self.records_add_lat.clear()
+        self.records_add_lon.clear()
+        self.records_add_elev.clear()
+        self.records_add_env.clear()
+        self.records_add_method.clear()
+        self.records_add_species.clear()
+        self.records_add_abundance.clear()
+        self.records_add_unit.clear()
+    def create_csv_editor_panel(self):
+        """CSV 追加/一覧/編集削除を統合したエディタパネル"""
+        panel = QTabWidget()
+
+        # 追加タブ
+        add_tab = QTabWidget()
+        # species 追加フォーム
+        species_add_widget = QWidget()
+        species_add_layout = QFormLayout(species_add_widget)
+        self.species_add_sci = QLineEdit()
+        self.species_add_jp = QLineEdit()
+        self.species_add_sub = QLineEdit()
+        self.species_add_len = QDoubleSpinBox()
+        self.species_add_len.setRange(0, 50)
+        self.species_add_len.setDecimals(1)
+        self.species_add_len.setSuffix(" mm")
+        self.species_add_red = QComboBox()
+        self.species_add_red.addItems(['', 'EX', 'EW', 'CR', 'EN', 'VU', 'NT', 'LC', 'DD'])
+        self.species_add_synonyms = QLineEdit()
+        self.species_add_notes = QTextEdit()
+        self.species_add_notes.setMaximumHeight(80)
+        add_btn = QPushButton("追加CSVへ追記")
+        add_btn.clicked.connect(self.append_species_to_csv)
+        species_add_layout.addRow("学名 *:", self.species_add_sci)
+        species_add_layout.addRow("和名 *:", self.species_add_jp)
+        species_add_layout.addRow("亜科:", self.species_add_sub)
+        species_add_layout.addRow("体長:", self.species_add_len)
+        species_add_layout.addRow("レッドリスト:", self.species_add_red)
+        species_add_layout.addRow("別名・シノニム:", self.species_add_synonyms)
+        species_add_layout.addRow("備考:", self.species_add_notes)
+        species_add_layout.addRow(add_btn)
+        add_tab.addTab(species_add_widget, "species.csv 追加")
+        # research 追加フォーム
+        research_add_widget = QWidget()
+        research_add_layout = QFormLayout(research_add_widget)
+        self.research_add_title = QLineEdit()
+        self.research_add_author = QLineEdit()
+        self.research_add_year = QLineEdit()
+        self.research_add_doi = QLineEdit()
+        self.research_add_file_path = QLineEdit()
+        self.research_add_btn = QPushButton("追加CSVへ追記")
+        self.research_add_btn.clicked.connect(self.append_research_to_csv)
+        research_add_layout.addRow("タイトル:", self.research_add_title)
+        research_add_layout.addRow("著者:", self.research_add_author)
+        research_add_layout.addRow("年:", self.research_add_year)
+        research_add_layout.addRow("DOI:", self.research_add_doi)
+        research_add_layout.addRow("ファイルパス:", self.research_add_file_path)
+        research_add_layout.addRow(self.research_add_btn)
+        add_tab.addTab(research_add_widget, "research.csv 追加")
+        # records 追加フォーム
+        records_add_widget = QWidget()
+        records_add_layout = QFormLayout(records_add_widget)
+        self.records_add_research_title = QLineEdit()
+        self.records_add_site = QLineEdit()
+        self.records_add_date = QLineEdit()
+        self.records_add_lat = QLineEdit()
+        self.records_add_lon = QLineEdit()
+        self.records_add_elev = QLineEdit()
+        self.records_add_env = QLineEdit()
+        self.records_add_method = QLineEdit()
+        self.records_add_species = QLineEdit()
+        self.records_add_abundance = QLineEdit()
+        self.records_add_unit = QLineEdit()
+        self.records_add_btn = QPushButton("追加CSVへ追記")
+        self.records_add_btn.clicked.connect(self.append_records_to_csv)
+        records_add_layout.addRow("研究タイトル:", self.records_add_research_title)
+        records_add_layout.addRow("地点名:", self.records_add_site)
+        records_add_layout.addRow("調査日(YYYY-MM-DD):", self.records_add_date)
+        records_add_layout.addRow("緯度:", self.records_add_lat)
+        records_add_layout.addRow("経度:", self.records_add_lon)
+        records_add_layout.addRow("標高(m):", self.records_add_elev)
+        records_add_layout.addRow("環境:", self.records_add_env)
+        records_add_layout.addRow("方法:", self.records_add_method)
+        records_add_layout.addRow("種名:", self.records_add_species)
+        records_add_layout.addRow("個体数:", self.records_add_abundance)
+        records_add_layout.addRow("単位:", self.records_add_unit)
+        records_add_layout.addRow(self.records_add_btn)
+        add_tab.addTab(records_add_widget, "records.csv 追加")
+        panel.addTab(add_tab, "追加")
+
+        # 一覧タブ
+        list_tab = QTabWidget()
+        list_tab.addTab(QWidget(), "species.csv 一覧")
+        list_tab.addTab(QWidget(), "research.csv 一覧")
+        list_tab.addTab(QWidget(), "records.csv 一覧")
+        panel.addTab(list_tab, "一覧")
+
+        # 編集削除タブ
+        edit_tab = QTabWidget()
+        edit_tab.addTab(QWidget(), "species.csv 編集/削除")
+        edit_tab.addTab(QWidget(), "research.csv 編集/削除")
+        edit_tab.addTab(QWidget(), "records.csv 編集/削除")
+        panel.addTab(edit_tab, "編集削除")
+
+        return panel
 
 
 def main():

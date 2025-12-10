@@ -28,6 +28,15 @@ def main() -> int:
     importer = AntDatabaseImporter(str(args.db))
     try:
         data_dir = Path(args.data)
+        # If the provided data directory doesn't exist, try a common fallback directory named 'csv'
+        if not data_dir.exists() or not data_dir.is_dir():
+            alt_dir = Path("csv")
+            if alt_dir.exists() and alt_dir.is_dir():
+                print(f"Directory '{data_dir}' not found. Falling back to '{alt_dir}'.")
+                data_dir = alt_dir
+            else:
+                print(f"Error: Data directory '{data_dir}' not found and no fallback 'csv' exists.")
+                return 1
 
         if (data_dir / "species.csv").exists():
             importer.import_species(data_dir / "species.csv")
