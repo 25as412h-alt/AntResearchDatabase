@@ -109,7 +109,7 @@ class AntDatabaseQuery:
             AVG(o.abundance) AS avg_abundance,
             MIN(ss.elevation_m) AS min_elevation,
             MAX(ss.elevation_m) AS max_elevation,
-            GROUP_CONCAT(DISTINCT ss.site_name, ', ') AS sites
+            GROUP_CONCAT(DISTINCT ss.site_name) AS sites
         FROM occurrences o
         JOIN survey_sites ss ON o.site_id = ss.id
         LEFT JOIN environment_types et ON ss.env_type_id = et.id
