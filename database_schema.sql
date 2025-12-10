@@ -99,12 +99,8 @@ CREATE INDEX idx_occurrences_lookup ON occurrences(species_id, site_id);
 
 -- ==================== トリガー ====================
 
-CREATE TRIGGER update_species_timestamp 
-AFTER UPDATE ON species
-FOR EACH ROW
-BEGIN
-    UPDATE species SET updated_at = datetime('now', 'localtime') WHERE id = NEW.id;
-END;
+-- トリガーによる自動更新は現在無効化しています。更新日時の自動更新はアプリ側で管理する方針です。
+-- もし再導入する場合は、再設計された安全な実装を適用してください。
 
 -- ==================== 初期データ ====================
 
@@ -132,7 +128,14 @@ SELECT
     s.scientific_name,
     s.japanese_name,
     s.subfamily,
-    GROUP_CONCAT(DISTINCT sy.name, '; ') AS synonyms
+    (
+        SELECT GROUP_CONCAT(name, '; ')
+        FROM (
+            SELECT DISTINCT name
+            FROM species_synonyms
+            WHERE species_id = s.id
+        ) sub
+    ) AS synonyms
 FROM species s
 LEFT JOIN species_synonyms sy ON s.id = sy.species_id
 GROUP BY s.id;

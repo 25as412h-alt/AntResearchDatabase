@@ -14,21 +14,31 @@ class AntDatabaseQuery:
         self.conn.row_factory = sqlite3.Row
     
     def search_species(self, name: str) -> List[Dict[str, Any]]:
-        """種名検索 (部分一致)"""
+        """種名検索 (部分一致) - synonymsの集計をDISTINCT+セパレータの組み合わせで安全に取得"""
         query = """
-        SELECT DISTINCT
+        SELECT
             s.id,
             s.scientific_name,
             s.japanese_name,
             s.subfamily,
             s.body_len_mm,
             s.red_list,
-            GROUP_CONCAT(DISTINCT sy.name, '; ') AS synonyms
+            (
+                SELECT GROUP_CONCAT(name, '; ')
+                FROM (
+                    SELECT DISTINCT name
+                    FROM species_synonyms
+                    WHERE species_id = s.id
+                ) AS names
+            ) AS synonyms
         FROM species s
-        LEFT JOIN species_synonyms sy ON s.id = sy.species_id
-        WHERE s.scientific_name LIKE ? 
+        WHERE s.scientific_name LIKE ?
            OR s.japanese_name LIKE ?
-           OR sy.name LIKE ?
+           OR EXISTS (
+               SELECT 1
+               FROM species_synonyms sy
+               WHERE sy.species_id = s.id AND sy.name LIKE ?
+           )
         GROUP BY s.id
         ORDER BY s.japanese_name
         """
