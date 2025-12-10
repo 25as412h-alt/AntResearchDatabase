@@ -129,7 +129,7 @@ SELECT
     s.japanese_name,
     s.subfamily,
     (
-        SELECT GROUP_CONCAT(name, '; ')
+        SELECT GROUP_CONCAT(name)
         FROM (
             SELECT DISTINCT name
             FROM species_synonyms

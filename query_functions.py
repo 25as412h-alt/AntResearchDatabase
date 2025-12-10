@@ -12,6 +12,8 @@ class AntDatabaseQuery:
     def __init__(self, db_path: str):
         self.conn = sqlite3.connect(db_path)
         self.conn.row_factory = sqlite3.Row
+        # Ensure core views required by GUI exist to avoid runtime errors
+        self._ensure_missing_views()
     
     def search_species(self, name: str) -> List[Dict[str, Any]]:
         """種名検索 (部分一致) - synonymsの集計をDISTINCT+セパレータの組み合わせで安全に取得"""
@@ -45,6 +47,35 @@ class AntDatabaseQuery:
         pattern = f"%{name}%"
         cursor = self.conn.execute(query, (pattern, pattern, pattern))
         return [dict(row) for row in cursor.fetchall()]
+
+    def _ensure_missing_views(self) -> None:
+        """Create essential views if they are missing to avoid runtime errors in GUI."""
+        create_view_sql = """
+        CREATE VIEW IF NOT EXISTS v_species_full AS
+        SELECT 
+            s.id,
+            s.scientific_name,
+            s.japanese_name,
+            s.subfamily,
+            (
+                SELECT GROUP_CONCAT(name, '; ')
+                FROM (
+                    SELECT DISTINCT name
+                    FROM species_synonyms
+                    WHERE species_id = s.id
+                ) sub
+            ) AS synonyms
+        FROM species s
+        LEFT JOIN species_synonyms sy ON s.id = sy.species_id
+        GROUP BY s.id;
+        """
+        try:
+            self.conn.execute(create_view_sql)
+            self.conn.commit()
+        except sqlite3.Error:
+            # If view creation fails, swallow to avoid breaking startup;
+            # GUI will report issues if view is truly unavailable.
+            pass
     
     def get_sympatric_species(self, species_id: int, min_sites: int = 1) -> pd.DataFrame:
         """同所的に出現した種の一覧"""
@@ -55,7 +86,7 @@ class AntDatabaseQuery:
             s.japanese_name,
             s.subfamily,
             COUNT(DISTINCT o2.site_id) AS co_occurrence_sites,
-            GROUP_CONCAT(DISTINCT ss.site_name, ', ') AS sites
+            GROUP_CONCAT(DISTINCT ss.site_name) AS sites
         FROM occurrences o1
         JOIN occurrences o2 ON o1.site_id = o2.site_id
         JOIN species s ON o2.species_id = s.id
